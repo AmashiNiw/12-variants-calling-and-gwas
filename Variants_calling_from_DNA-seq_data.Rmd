@@ -1,0 +1,738 @@
+---
+title: "Variants calling from DNA-seq data"
+author: 'CE7412: Computational and Systems Biology'
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+  pdf_document: 
+    latex_engine: pdflatex
+  html_document:
+    number_sections: true
+---
+
+\newpage
+
+# Sequencing
+
+DNA/RNA sequencing is the determination of the order of the four nucleotides in a nucleic acid molecule. 
+
+## First-generation sequencing
+
+The emergence of first-generation sequencing emerged in 1970s when Allan Maxam and Walter Gilbert developed a chemical method for sequencing, followed by Frederick Sanger who developed the chain-terminator method. Sanger method became the more commenly used first-generation sequencing method. The steps in Sanger sequencing are similar to that of PCR, including denaturation, primer anealing, and complementary strand synthesis. However, sample DNA is divided into for reaction tubes labelled by di-deoxynucleotide tripospates: ddATP, ddGTP, ddCTP, and ddTTP. The synthesis terminates in DNA fragments of varying length and the fragments are then separated by size using gel electophoresis.The DNA bands are then graphed by autoradiography and the order of the nucleotide bases on the DNA sequence can be directly read from Xray film.
+
+## Next-generation sequencing (NGS)
+
+Next-generation sequencing (NGS) is a massively parallel sequencing technology that offers ultra-high throughput, scalability, and speed. Compared to earlier sequencing technology such as Sanger sequencing which focuses on one fragment at a time, NGS provides sequencing information on multiple fragments simultaneously, producing counts data.  
+
+![Next-generation sequencing workflow](rnaSeq_workflow.png)
+
+Next-Generation Sequencing refers to a class of technologies that sequence millions of short DNA fragments in parallel, with a relatively low cost. The length and number of the reads differ based on the technology. Currently, there are three major commercially available platforms/technologies for NGS: (1) Illumina, (2) Roche, and (3) Life Technologies. The underlying chemistry and technique used in each platform is unique and affects the output.
+
+NGS sequencing enables a wide variety of applications, allowing researchers to ask virtually any question related to the genome, transcriptome, or epigenome of any organism. NGS methods differ primarily by how the DNA or RNA samples are prepared and the data analysis options used. The technology is used to determine the order of nucleotides in entire genomes or targeted regions of DNA or RNA. 
+
+## Third-generation sequencing
+
+Third generation sequencing (TGS) is recent sequencing technique that addresses drawbacks of NGS, such as the needs for long reads and poor resolution. The foundation of TGS emerged when DNA polymerase was used to obtain a sequence o single DNA molecules, which involves  (i) direct imaging of individual DNA molecules using advanced microscopy techniques and (ii) nanopore sequencing technique in which a single molecule of DNA is threaded through a nanopore.
+
+In general, there are two TGS technologies available: (i) Pacific Bioscience (PacBio) single molecule real time sequencing, and (ii) Oxford nanopore technologies.
+
+
+# Whole-genome sequencing (WGS) vs Whole-exome sequencing (WES)
+
+
+```{r, echo=F, out.height="100%", out.width="100%"}
+knitr::include_graphics("wgs_vs_wes.jpeg")
+```
+
+## WGS (Whole-genome sequencing)
+
+WGS is a comprehensive method of analyzing the entire genomic DNA of a cell at a single time by using sequencing techniques such as Sanger sequencing, shotgun approach, or high throughput NGS sequencing. It is also known as full genome sequencing or complete genome sequencing. Whole-genome sequencing entails the sequencing all of an organism’s chromosomal DNA as well as DNA in mitochondria, and for plants, the DNA in the chloroplast at a single time. WGS enables scientists to read the exact sequence of all the letters that make up the complete set of DNA. 
+
+## WES (Whole-exome sequencing)
+
+WES focuses on the genomic proteincoding regions (exons). Although WES requires additional reagents (probes) and some additional steps (hybridization), it is a cost-effective, widely used NGS method that requires fewer sequencing reagents and takes less time to perform bioinformatic analysis compared to WGS. Although the human exome represents only 1-5% of the genome, it contains approximately 85% of known disease-related variants.1 As such, researchers performing WES achieve comprehensive coverage of coding variants such as single nucleotide variants (SNVs) and insertions/deletions (indels). Despite lengthier sample preparation due to the additional target enrichment step, scientists benefit from quicker sequencing and data analysis compared to WGS. WES provides greater sequencing depth for researchers interested in identifying genetic variants for numerous applications, including population genetics, genetic disease research, and cancer studies.
+
+# Sequencing depth and read quality
+
+## Sequencing depth and coverage
+
+The biological results and interpretation of sequencing data for different sequencing applications are greatly affected by the number of sequenced reads that cover the genomic regions.
+
+The sequencing *depth* measures the average read abundance and it is calculated as the number of bases of all sequenced short reads that match a genome divided by the length of that genome. 
+
+
+![Sequence coverage and depth](sequence_coverage_depth.pdf)
+
+
+The *coverage* gives the density of reads.
+If the reads are equal
+$$ \text{Coverage} = \frac{\text{read length}(bp) \times \text{number of reads}}{\text{genome size}(bp)}$$
+
+If the reads are not equal in length, the coverage is calculated as
+$$\text{Coverage} = \frac{\sum_{i=1}^n \text{lenght of read}\ i}{\text{genome size}(bp)}$$
+where $n$ is the number of sequece reads.
+
+## Base call quality
+
+The process of inferring the base at a specific position of the sequenced DNA fragment during the sequencing process is called the *base calling*. Most sequencing platforms are equipped with base calling programs that assign a *Phred* quality score to measure the accuracy of each base called. The **Phred quality score** ($Q$-score) transforms the probability of calling a base wrongly into an integer core that is easy to interpret. The Phred score is defined as
+$$ p = 10^{-Q/10}$$
+$$ Q = -10 \log_{10} (p)$$
+where $p$ is the probability of the base call being wrong. 
+
+
+
+# Fasta and Fastq formats  
+
+High-throughput sequencing reads are usually output from sequencing facilities as text files in a format called “FASTQ” or “fastq”. This format depends on an earlier format called FASTA. The FASTA format was developed as a text-based format to represent nucleotide or protein sequences. An extension of the FASTA format is FASTQ format. This format is designed to handle base quality metrics output from sequencing machines. In this format, both the sequence and quality scores are represented as single ASCII characters. The format uses four lines for each sequence, and these four lines are stacked on top of each other in text files output by sequencing workflows.
+
+```{r, echo=F}
+knitr::include_graphics("fastqPic.png")
+```
+Credit: https://compgenomr.github.io/book/fasta-and-fastq-formats.html
+
+A **Phred quality score (Q score)** is a metric used to measure the accuracy of a sequencing platform. It indicates the probability that a given base is called incorrectly by the sequencer. Q score is usually indicated by an ASCII character.
+
+# DNA-Seq analysis pipeline  
+The DNA-Seq analysis pipeline identifies somatic variants within whole exome sequencing (WXS) and whole genome sequencing (WGS) data. Somatic variants are identified by comparing allele frequencies in normal and tumor sample alignments, annotating each mutation, and aggregating mutations from multiple cases into one project file.
+
+
+## Steps in DNA-Seq analysis
+
+Variant calling is the process by which we identify variants from sequence data:
+
+* Base calling: Carry out whole genome or whole exome sequencing to create bases for each locations in FASTQ files.
+* Filtering
+* Read mapping: Align the sequences to a reference genome, creating BAM or CRAM files.
+* Quality control
+* Variant calling: Identify where the aligned reads differ from the reference genome and write to a VCF file.
+* Filtering
+* Population analysis: GWAS
+
+## Alignment pipeline (GDC)
+
+```{r, echo=F, out.width="70%", out.height="70%"}
+knitr::include_graphics("dna-alignment-pipeline_1.png")
+```
+
+Credit: https://docs.gdc.cancer.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/
+
+
+
+## Bioconductor resources for NGS analysis  
+
+```{r, echo=F, out.width="90%", out.height="90%"}
+knitr::include_graphics("bioconductor_seq_resources.png")
+```
+
+Credit: https://dockflow.org/workflow/sequencing/
+
+# Read mapping
+
+Read mapping refers to alignment of reads from high throughput analysis into a reference genome. The basic alignment algorithms do not work here because millions of reads have to be aligned to a reference genomes at the same time. Efficient *indexing algorithms* are needed to organize the sequence of the reference genome and the short reads in a memory efficient manner and to facilitate fast searching of the patterns. The commonly used data structures are:
+
+* suffix trees
+* suffix array
+* Burrows-Wheeler transform (BWT)
+* Full-text Minute space (FM-index)
+
+## Suffix Tree
+
+Suffix tree is basically used for pattern matching and finding substrings in a given string of characters. It is constructed as a key and value pairs where all possible suffixes of the reference sequences as keys and the positions (indexes) in the sequence as the values. The following algorithm, known as Ukkonen's algorithm, constructs a suffix tree in a linear time. 
+
+For example, let's assume that our reference sequence consists of 10 bases as "CTTGGCTGGA$" where the positions are 0, 1, ... 9, and \$ is in the empty trailing position. Let's form the suffixes (keys) and indexes (values):
+
+$ 10   
+A $ 9   
+GA $ 8  
+GGA $ 7   
+TGGA $ 6   
+CTGGA $ 5  
+GCTGGA $ 4  
+GGCTGGA $ 3   
+TGGCTGGA $ 2   
+TTGGCTGGA $ 1  
+CTTGGCTGGA $ 0   
+
+Note that each line consists of suffix (key) and a positon (value). Then a suffix tree can be made using key-value pairs as edges and nodes of the tree, respectively. 
+
+![Suffix Tree](suffix_trees.pdf)
+
+Once the suffix tree is build, there are several searching algorithms are available to find the location where a read maps. For instance, to find "TGG" in the tree, we will start looking for T and and then GG. And since there are two leaf nodes, "TGG" can map at positions 2 or 6.
+
+![Suffix Array](suffix_array.pdf)
+
+## Suffix Arrays
+
+Suffix arrays can be constructed from suffix trees. It is basically a sorted array of all suffixes in a given sequence. We can quickly search for locations begin with suffixes "TGG" as 7 and 3. 
+
+![Burrows-Wheeler Transform](bwt.pdf)
+
+## Burrows-Wheeler Transform
+
+The Borrows-Wheeler Transform (BWT) is a data structure that transform a string (sequence) into a compressible form that allows fast searching. The BWT is used by popular aligners like BWA and Bowtie. The BTW  of the sequence 's' or $bwt(s)$ is computed by generating cyclic rotations of the sequences and then are sorted alphabetically to form a matrix called BWM (Borrows-Wheeler Matrix). 
+
+BWT could be obtained from a suffix array in a linear time complexity by using the following transform:
+$$ bwt(s)[i] = s[a[i]-1]\ \text{if}\ a[i] > 1\ \text{else}\ s[n]$$
+
+```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| i | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10|
+| s | C | T | T | G | G | C | T | G | G | A |
+| a | 11| 10| 6 | 1 | 9 | 5 | 8 | 4 | 7 | 3 |
+|bwt| A | G | G | $ | G | G | T | T | C | T |
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
+
+BWT serves two purposes. First, BWT columns are sorted alphabeticallly. Secondly, the second purpose is that it can find the matching position fast because it is reversible which property allows BWT to reverse to obtain BWM by a simple mapping. 
+
+# De novo genome assembly
+
+De novo genome assembly comes to play when there is no reference genome available for the organism. De novo genome assembly is a strategy to assemble a novel genome from scratch without the aid of a reference genome sequence. The de novo genome assembly aims to join reads into a contiguous sequence called a contig. Multiple contigs are joined together to form a scaffold and multiple scaffolds can be linked to form a chromosome. 
+
+Both single-end and paired-end reads can be used in the de novo assembly but paired reads are prefreed because they provide high quality reads. Assemblying the entire genome is usually challenging but with deep sequencing (with high coverage and depth), most of the challenges can be overcome. 
+
+The algorithms used for de novo genome assembly are:
+
+* greedy approach  
+* overlap-lay-out consensus with Hamiltonian path  
+* de Bruijn graph with Eulerian path  
+
+## Greedy algorithm
+
+It depends on similarity between reads to create a pile up of aligned sequences, which are collapsed to create contigs from the consensus sequences. The greedy algorithm uses pairwise alignment to compare all reads to identify the most similar reads with sufficient overlaps to be merged. The process continues repeatedly until there is no more merging. 
+
+![Greedy algorithm for de novo genome assembly](greedy_algorithm.pdf)
+
+## Overlap consensus graphs
+
+The overlap-consensus algorithm performs pairwise alignment and then it represents the reads and the overlaps between the reads with graphs, where contiguous reads are the nodes and their overlaps are the edges. Each node $r_i$ corresponds to a read and any two reads are connected by an edge $e(r_1, r_2)$ where the suffix is the first read maches the prefix of the second read. The algorithm then find the Hamiltonian parth of the graph that includes the nodes (reads) exactly once. Contigs are then created from the consensus sequencees of the overlapped suffixes and prefixes. 
+
+![Overlap-consensus graphs](overlap_consensus_graphs.pdf)
+
+## De Bruijn Graphs
+
+In de Bruijn graphs, each read is broken into overlapping substrings of length $k$ called overlapping $k$-mers. The $k$-mers are then represented by graphs in which each $k$-mer is a vertex. Any two nodes of any two $k$-mers that share a commeon prefix and suffix of length $k-1$ are connected by an edge. The contiguous reads are merged by finding the Eulerian path, which include every edge exactly once. 
+
+![De Bruijn graphs](De_Bruijn_graphs.pdf)
+
+
+# Genomic variants
+
+## Types of genomic variants
+```{r, echo=F, out.width="80%", out.height="80%"}
+knitr::include_graphics("types_genomic_variants.png")
+```
+
+### SNVs (single nucleotide variants):  
+also known as single base substitutions, are the
+simplest type of variation as they only involve the change of one base for another in a
+DNA sequence. These can be subcategorized into *transitions* (Ti) and *transversions*
+(Tv); *Ti*s are changes between two purines or between two pyrimidines, whereas
+the latter involve a change from a purine to a pyrimidine or vice versa. An example of a
+transition would be a G > A variant. If the SNV is common in a population (usually with
+an allele frequency > 1%), then it is referred to as a **SNP (single nucleotide polymorphism)**.
+
+### MNVs (multi-nucleotide variants):  
+which are sequence variants that involve the consecutive
+change of two or more bases. An example would be one of the types of mutations
+caused by UV irradiation, CC>TT. Similarly to SNVs, there are some MNVs that are
+found at higher frequencies in the population, which are referred to as **MNPs (multi-nucleotide polymorphism)**.
+
+### Indels (insertions and deletions):   
+which involve the gain or loss of one
+or more bases in a sequence. Usually, what is referred to as indel tends to be only a few
+bases in length. An example of a deletion would be CTGGT > C and an insertion would
+be represented as T > TGGAT.
+
+### Structural variants:  
+which are genomic variations that involve larger segments of the
+genome. These can involve **inversions**, which is when a certain sequence in the genome
+gets reversed end to end, and **copy number variants** including amplifications, when a
+fraction of genome gets duplicated one or more times, and larger deletions, when large
+segments of the genome get lost. There is not a strict rule defining the number of base
+pairs that make the difference between an indel and a structural variant, but usually, a
+gain or loss of DNA would be called a structural variant if it involved more than one
+kilobase of sequence.
+
+
+
+## Methods of variant calling 
+
+### Naive variant calling  
+A naive approach to determining the genotypes from a pile of sequencing reads mapped
+to a site in the genome is to count the number of reads with the reference and alternate
+alleles and to establish hard genotype thresholds.
+
+```{r, echo=F, out.height="90%", out.width="90%"}
+knitr::include_graphics("naive_variant_calling.png")
+```
+
+In this method, reads are aligned to the reference sequence (green)
+and a threshold of the proportion of reads supporting each allele for calling genotypes is established
+(top). Then, at each position, the proportion of reads supporting the alternative allele is calculated and,
+based on the dosage of the alternative allele, a genotype is established.
+Yellow: a position where a
+variant is present but the proportion of alternative alleles does not reach the threshold (1/6 < 0.25).
+
+### Bayesian variant calling  
+
+The Bayesian approach includes information about the prior probability of a variant occurring at
+that site and the amount of information supporting each of the potential genotypes.
+
+$$ P(g | d) = \frac{P(d|g)P(g)}{P(d)}$$
+where $P(d|g)$ is the likelihood of sequence data $d$ given the genotype and $P(g)$ the prior probability of genotype $g$. The probabilities of a paticular genotype can be estimated over the whole sequence. 
+
+$P(d)$ can be computed as
+$$ P(d) = \sum_{g^\prime} P(d|g^\prime) P(g^\prime)$$
+
+### Heuristic methods  
+these methods rely on heuristic quantities and algorithms to call a variant site, such as a minimum coverage
+and alignment quality thresholds, and stringent cut-offs like a minimum number of reads
+supporting a variant allele. 
+
+# Applications
+
+## Extracting information in genomic regions of interest  
+
+Very often, one would want to know if a particular genomic feature falls in a particular genomic region of interest. This task can be handled very well by $\texttt{GRanges}$ and $\texttt{SummarizedExperiment}$ objects. We will look at a few ways to creating these objects and a few ways we can manupulate them.
+
+
+
+```{r, message=F, warning=F}
+library(GenomicRanges)
+library(rtracklayer)
+library(SummarizedExperiment)
+```
+
+Create $\texttt{GRanges}$ from different files: GFF, BED, and text files  
+```{r, message=F, warning=F}
+get_granges_from_gff <- function(file_name) {
+  gff <- rtracklayer::import.gff(file_name)
+  as(gff, "GRanges")
+}
+
+get_granges_from_bed <- function(file_name){
+  bed <- rtracklayer::import.bed(file_name)
+  as(bed, "GRanges")
+}
+
+get_granges_from_text <- function(file_name){
+  df <- readr::read_tsv(file_name, col_names = TRUE )
+  GenomicRanges::makeGRangesFromDataFrame(df, keep.extra.columns = TRUE)
+}
+
+get_annotated_regions_from_gff <- function(file_name) {
+  gff <- rtracklayer::import.gff(file_name)
+  as(gff, "GRanges")
+}
+```
+
+GFF file format: https://software.broadinstitute.org/software/igv/GFF  
+
+
+```{r, message=F, warning=F}
+gr_from_gff <- get_annotated_regions_from_gff(file.path(getwd(), "arabidopsis_chr4.gff"))
+gr_from_txt <- get_granges_from_text(file.path(getwd(), "arabidopsis_chr4.txt"))
+head(gr_from_txt)
+```
+
+Extract genes and corresponding GRanges: 
+```{r, message=F, warning=F}
+## Extract by seqname or metadata
+genes_on_chr4 <- gr_from_gff[ gr_from_gff$type == "gene" & seqnames(gr_from_gff) %in% c("Chr4") ]
+head(genes_on_chr4)
+```
+
+Manually creating region of interests and subset large region as $\texttt{GRanges}$ object.
+```{r, message=F, warning=F}
+## By range, create synthetic ranges
+region_of_interest_gr <- GRanges(
+  seqnames = c("Chr4"), 
+  IRanges(c(10000), width= c(1000))
+)
+
+overlap_hits <- findOverlaps(region_of_interest_gr, genes_on_chr4)
+features_in_region <- genes_on_chr4[subjectHits(overlap_hits) ]
+features_in_region
+```
+
+Create a random $\texttt{SummarizedExperiment}$ that uses $\texttt{GRanges}$ object and matrix of random data.
+```{r, message=F, warning=F}
+set.seed(4321)
+
+experiment_counts <- matrix( runif(4308 * 6, 1, 100), 4308)
+sample_names <- c(rep("ctrl",3), rep("test",3) )
+se <- SummarizedExperiment::SummarizedExperiment(rowRanges = gr_from_txt, assays = list(experiment_counts), colData = sample_names)
+```
+
+Let us find the overlapping regions in the experiments. Assay returns a subset of matrix data.
+```{r, message=F, warning=F}
+overlap_hits <- findOverlaps(region_of_interest_gr, se)
+data_in_region <- se[subjectHits(overlap_hits) ]
+assay(data_in_region)
+```
+
+
+## Predicting open reading frames (ORFs) in long reference sequences  
+Often times, gene annotations are not usually available. Let us look a first stage pipline for finding potential genes and genomic loci of interest absolutely *de novo* and without information beyond the sequence. 
+
+Let us use a simple set of rules to find *open reading frames* - sequences that begin with a start codon and end with a stop codon. Will use $\texttt{systemPipeR}$ package (to find ORF) and $\texttt{GRanges}$ object that can be used for downstream analysis.
+
+```{r, warning=F, message=F}
+library(Biostrings)
+library(systemPipeR) # to predict ORF
+```
+
+```{r, warning=F, message=F}
+# Use arabidopsis_chloroplast genome sequence as input (from a fasta file)
+dna_object <- readDNAStringSet(file.path(getwd(), "arabidopsis_chloroplast.fa"))
+
+predicted_orfs <- predORF(dna_object, n='all', type='gr', mode='ORF', strand = 'both', longest_disjoint = TRUE)
+predicted_orfs
+```
+
+
+Compute the properties of reference genome
+```{r, warning=F, message=F}
+bases <- c("A", "C", "T", "G")
+raw_seq_string <- strsplit(as.character(dna_object), "")
+
+seq_length <- width(dna_object[1])
+counts <- letterFrequency(dna_object[1], letters = c("A", "T", "G", "C"))
+probs <- unlist(lapply(counts, function(base_count){signif(base_count / seq_length, 2) }))
+dna_object[1]
+probs
+```
+
+Find the longest ORF length of the synthetic genome and keep the ORF which is longer than that in the given genome:  
+```{r, warning=F, message=F}
+# write a function to return longest ORF
+get_longest_orf_in_random_genome <- function(x,
+                                             length = 1000, 
+                                             probs = c(0.25, 0.25, 0.25, 0.25), 
+                                             bases = c("A","C","T","G"))
+{
+  random_genome <- paste0(sample(bases, size = length, replace = TRUE, prob = probs), collapse = "")
+  random_dna_object <- DNAStringSet(random_genome)
+  names(random_dna_object) <- c("random_dna_string")
+  orfs <- predORF(random_dna_object, n = 1, type = 'gr', mode='ORF', strand = 'both', longest_disjoint = TRUE)
+  return(max(width(orfs)))
+}
+
+# generate 10 simulated random genomes
+random_lengths <- unlist(lapply(1:10, get_longest_orf_in_random_genome, length = seq_length, probs = probs, bases = bases))
+
+# get length of longest random ORF
+longest_random_orf <- max(random_lengths)
+
+# Keep only the predicted ORF longer than the longest random ORF
+keep <- width(predicted_orfs) > longest_random_orf
+orfs_to_keep <- predicted_orfs[keep]
+orfs_to_keep
+```
+
+```{r, warning=F, message=F}
+##writing the resutls to a file in fasta format
+extracted_orfs <- BSgenome::getSeq(dna_object, orfs_to_keep) 
+names(extracted_orfs) <- paste0("orf_", 1:length(orfs_to_keep))
+writeXStringSet(extracted_orfs, "saved_orfs.fa")
+```
+
+
+
+## Finding SNPs and indels from sequence data using $\texttt{VariantTools}$
+
+```{r, message=F, warning=F}
+library(GenomicRanges) # handles genomic locations within a genome
+library(gmapR) # align short-range data
+library(rtracklayer) #interface to genome annotation files and the UCSC genome browser
+library(VariantAnnotation)
+library(VariantTools)
+```
+
+A key task in sequence analysis is to take an alignment of high-throughput sequences stored in BAM file (.bam) and compute a list of variant positions. Note that after FASTAQ file alignment to the reference genome, the outputs appear in BAM files. The results of variant calling is usually stored in a VCF file of variants.
+
+We will use a set of synthetic reads from human genome chromosome 17.
+Let us first read $\texttt{.bam}$ and $\texttt{.fa}$ files.
+```{r, message=F, warning=F}
+bam_folder <- file.path(getwd())
+
+# reference genome
+bam_file <- file.path( bam_folder, "hg17_snps.bam")
+
+# testing genome
+fasta_file <- file.path(bam_folder,"chr17.83k.fa")
+```
+
+Create a $\texttt{GmapGenome}$ object
+```{r, message=F, warning=F}
+fa <- rtracklayer::FastaFile(fasta_file)
+genome <- gmapR::GmapGenome(fa, create=TRUE)
+```
+
+Create a parameter object and call the Varints
+```{r, message=F, warning=F}
+qual_params <- TallyVariantsParam(genome = genome, minimum_mapq = 20)
+var_params <- VariantCallingFilters(read.count = 19, p.lower = 0.01)
+
+called_variants <- callVariants(bam_file, qual_params, calling.filters = var_params)
+head(called_variants)
+```
+
+Write VCF file
+```{r, message=F, warning=F}
+VariantAnnotation::sampleNames(called_variants) <- "sample_name"
+vcf <- VariantAnnotation::asVCF(called_variants)
+VariantAnnotation::writeVcf(vcf, "hg17.vcf")
+```
+
+Load the annotations and feature positions
+```{r, message=F, warning=F}
+get_annotated_regions_from_gff <- function(file_name) {
+  gff <- rtracklayer::import.gff(file_name) 
+  as(gff, "GRanges")
+}
+
+get_annotated_regions_from_bed <- function(file_name){
+  bed <- rtracklayer::import.bed(file_name)
+  as(bed, "GRanges")
+}
+
+genes <- get_annotated_regions_from_gff(file.path( bam_folder, "chr17.83k.gff3"))
+```
+
+calculate which variants overlap with genes and subest the genes
+```{r, message=F, warning=F}
+overlaps <- GenomicRanges::findOverlaps(called_variants, genes)
+
+genes[subjectHits(overlaps)][1:6]
+```
+
+
+## Ploting features of genetic maps
+
+Often, we want to see on a chromosome or genetic map where some features of interest lie in relation to others. These plots are called *chromosome plots* or *ideograms*, and we will see how $\texttt{karyoploteR}$ can do. 
+
+```{r, warning=F, message=F}
+library(karyoploteR)
+library(GenomicRanges)
+```
+
+Create a $\texttt{GRanage}$ object:
+```{r, warning=F, message=F}
+genome_df <- data.frame(
+  chr = paste0("chr", 1:5),
+  start = rep(1, 5),
+  end = c(34964571, 22037565, 25499034, 20862711, 31270811)
+)
+genome_gr <- makeGRangesFromDataFrame(genome_df)
+genome_gr
+```
+
+Set up SNPs positions we draw as markers
+```{r, warning=F, message=F}
+snp_pos <- sample(1:1e7, 25)
+snps <- data.frame(
+  chr = paste0("chr", sample(1:5,25, replace=TRUE)),
+  start = snp_pos,
+  end = snp_pos
+)
+snps_gr <- makeGRangesFromDataFrame(snps)
+snp_labels <- paste0("snp_", 1:25)
+
+snps_gr
+```
+
+```{r, warning=F, message=F}
+plot.params <- getDefaultPlotParams(plot.type=1)
+plot.params$data1outmargin <- 600
+
+kp <- plotKaryotype(genome=genome_gr, plot.type = 1, plot.params = plot.params)
+kpPlotMarkers(kp, snps_gr, labels = snp_labels)
+```
+
+We can add some numeric data to the plot. For example, lets introduce some random plot for chr4:
+```{r, warning=F, message=F}
+### create random data to chr4
+numeric_data <- data.frame(
+  y = rnorm(100,mean = 1,sd = 0.5  ),
+  chr = rep("chr4", 100),
+  start = seq(1,20862711, 20862711/100),
+  end = seq(1,20862711, 20862711/100)
+)
+
+numeric_data_gr <- makeGRangesFromDataFrame(numeric_data)
+
+plot.params <- getDefaultPlotParams(plot.type=2)
+plot.params$data1outmargin <- 800
+plot.params$data2outmargin <- 800
+plot.params$topmargin <- 800
+
+kp <- plotKaryotype(genome=genome_gr, plot.type = 2, plot.params = plot.params)
+kpPlotMarkers(kp, snps_gr, labels = snp_labels)
+kpLines(kp, numeric_data_gr, y = numeric_data$y, data.panel=2)
+```
+
+
+## Estimating the copy number at a locus of interest  
+
+We often want to know if a locus has been duplicated or its **copy number** has increased. Our approach is to use DNA-seq read coverage after alignment to estimate a background level of coverage and then inspect the coverage on our region of interest. The ratio of coverage give an estimate of the copy number of the region. 
+
+
+```{r, warning=F, message=F}
+library(csaw) # Bioconductor package for find CNV
+```
+
+Get counts in windows across the hg17 genome:  
+```{r, warning=F, message=F}
+whole_genome <- csaw::windowCounts( 
+  file.path(getwd(), "hg17_snps.bam"), # the bam file contains counts
+  bin = TRUE,
+  filter = 0,
+  width = 100,
+  param = csaw::readParam(
+    minq = 20,
+    dedup = TRUE,
+    pe = "both"
+  )
+)
+colnames(whole_genome) <- c("h17")
+```
+
+Extract the data from $\texttt{SummarizedExperiment}$ object. Set a threshold and make lower counts to NA. 
+```{r, warning=F, message=F}
+counts <- assay(whole_genome)[,1]
+
+min_count <- quantile(counts, 0.1)[[1]]
+counts[counts < min_count] <- NA # lowest counts to NA
+```
+
+Calculate the mean coverage and ratio in each window to that mean coverage, and inspect the ratio vector with a plot.
+```{r, warning=F, message=F}
+n <- length(counts)
+doubled_windows <- 10
+
+left_pad <- floor( (n/2) - doubled_windows )
+right_pad <- n - left_pad -doubled_windows
+multiplier <- c(rep(1, left_pad ), rep(2,doubled_windows), rep(1, right_pad) )
+counts <- counts * multiplier
+
+mean_cov <- mean(counts, na.rm=TRUE) 
+
+ratio <- matrix(log2(counts / mean_cov), ncol = 1)
+plot(ratio)
+```
+
+Build a $\texttt{SummarisedExperiment}$ with new data
+```{r, warning=F, message=F}
+se <- SummarizedExperiment(assays=list(ratio), rowRanges= rowRanges(whole_genome), colData = c("CoverageRatio"))
+```
+
+Create a region of interest and extract the coverage from it
+```{r, warning=F, message=F}
+region_of_interest <- GRanges(
+  seqnames = c("NC_000017.10"),
+  IRanges(c(40700), width = c(1500) )
+)
+
+overlap_hits <- findOverlaps(region_of_interest, se)
+data_in_region <- se[subjectHits(overlap_hits)]
+assay(data_in_region)
+```
+
+## Finding phenotype and genotype associations with GWAS
+
+**Genome-wide association studies (GWAS)** of genotype and phenotypes is a powerful application  to find the presence of gentic variants in many samples of high-throughput sequencing data.  GWAS is a genomic analysis of gentic variants in different individuals of genetic lines to see any particular variant is associated with a trait in a large population. 
+
+There are various approaches for doing GWAS, which rely on gathering data on vaiants in particular samples and working out each sample's genotype before cross-referencing with the phenotype in some way or other. We will use the $\texttt{GWAS}$ function from $\texttt{rrBLUP}$ package.
+
+```{r, message=F, warning=F}
+library(VariantAnnotation)
+library(rrBLUP)
+set.seed(1234) # for reproducibility
+```
+
+Get the VCF (Variant Call Format) file
+```{r, message=F, warning=F}
+vcf_file <- file.path(getwd(), "small_sample.vcf")
+```
+
+Extract the genotype, sample, and marker position information
+```{r, message=F, warning=F}
+vcf <- readVcf(vcf_file, "hg19")
+header(vcf)
+
+samples <- samples(header(vcf)) # take a sample 
+samples
+
+chrom <- as.character(seqnames(rowRanges(vcf)))
+chrom
+
+pos <- as.numeric(start(rowRanges(vcf)))
+pos
+```
+
+```{r, message=F, warning=F}
+gts <- geno(vcf)$GT
+gts
+
+markers <- rownames(gts)
+```
+
+
+Convert VCF genotypes into the convention used by the GWAS function: 
+```{r, message=F, warning=F}
+convert <- function(v){
+  v <- gsub("0/0", 1, v)
+  v <- gsub("0/1", 0, v)
+  v <- gsub("1/0", 0, v)
+  v <- gsub("1/1",-1, v)
+  return(v)
+}
+```
+
+Call the function and convert the result into a numeric matrix to map heterozygous and homozygous annotations to that used in $\texttt{GWAS}$.
+```{r, message=F, warning=F}
+gt_char<- apply(gts, convert, MARGIN = 2)
+
+genotype_matrix <- matrix(as.numeric(gt_char), nrow(gt_char) )
+colnames(genotype_matrix)<- samples
+genotype_matrix
+```
+
+Build a dataframe describing the variant
+```{r, message=F, warning=F}
+variant_info <- data.frame(marker = markers, chrom = chrom, pos = pos)
+```
+
+Build a variant/genotype dataframe
+```{r, message=F, warning=F}
+genotypes <-  cbind(variant_info, as.data.frame(genotype_matrix))
+genotypes
+```
+
+
+Build a phenotype dataframe
+```{r, message=F, warning=F}
+phenotypes <- data.frame(
+  line = samples,
+  score = rnorm(length(samples))
+)
+phenotypes
+```
+
+Run GWAS to map genotypes and phenotypes:  
+```{r, message=F, warning=F}
+GWAS(phenotypes, genotypes, plot=FALSE)
+```
+
+Returns a data frame where the first three columns are the marker name, chromosome, and position, and subsequent columns are the marker scores (-log_{10}p) for the traits.
+
+
+# References:  
+* R Bioinformatics Cookbook by Dan MacLean:  
+  https://github.com/PacktPublishing/R-Bioinformatics-Cookbook   
+* Next Generation Sequencing And Data Analysis edited by Melanie Kappelmann-Fenzl:  
+  https://link.springer.com/book/10.1007/978-3-030-62490-3  

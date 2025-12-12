@@ -1,0 +1,370 @@
+---
+title: "Quantitative Trait Loci (QTL) Mapping"
+author: 'CE7412: Computational and Systems Biology'
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+  number_sections: true
+  pdf_document: 
+    latex_engine: pdflatex
+  html_document:
+---
+
+
+## Introduction
+
+Many phenotypes (traits) 
+are quantitative in nature. Variation in such quantitative traits is often due to the effects of multiple
+genetic loci as well as environmental factors. Knowledge of the number, locations,
+effects, and identities of such genetic loci, called **quantitative trait loci
+(QTL)**, can lead to new biological insights.
+
+
+Studies identifying QTL assemble or create a genetically diverse population.
+Then we associate genetic variation with phenotypic variation in the study
+population. Regions of the genome that show convincing evidence of association
+with the phenotypes are flagged as QTL.
+
+QTL mapping is to obtain phenotype data on a number
+of backcross or intercross progeny and then identify regions in the genome
+where genotype is associated with the phenotype. 
+However, the genotype is
+not observed at every possible position along the chromosomes, but only at a
+set of discrete landmarks called **genetic markers**. 
+
+QTL mapping data has three interrelated data structures: the phenotypes,
+the genotypes, and the marker map. The **phenotype data** consists of observable
+characteristics of each individual in the population. These would include traits
+of interest such as blood pressure, or body weight, but also covariates such
+as sex, cross direction, and environmental conditions such as diet. 
+ The **genotype data** consists of a set of
+genetic markers spanning the genome. 
+The **genetic map** specifies the markers locations on the chromosomes in terms
+of genetic distance. 
+
+We will use `qtl` package in R for QTL mapping.
+```{r}
+library(qtl)
+```
+
+## Breading experiments 
+
+### Backcross experiment
+
+![Backcross experiment](backcross_experiment.png)
+The two inbred (bred from closely related ones) strains, A and B are crossed to produce
+F1 generation receiving a
+single chromosome from each parent. All individuals in F are genetically identical. If
+we cross an individual from the F1 generation “back” to one of the parental strains, we obtain a population exhibiting genetic variation.
+The **backcross** individuals receive an intact A chromosome from their A parent. 
+
+
+### Intercross experiment
+
+![Schematic of autosomal representation of intercross experiment](intercross_experiment.png)
+The two inbred strains, A and B, are crossed to obtain F1 generation. By crossing two individuals in the F1 generation (or by selfing
+when possible), we create genetic variation in the resulting F2 population. The three
+possible genotypes AA, AB, and BB appear in a 1:2:1 ratio.
+
+
+
+
+
+
+## Salt-induced hypertension data in the mouse.
+
+
+```{r}
+# Data import to an object of class cross
+sug <- read.cross("csv", "https://rqtl.org", "sug.csv",
+                  genotypes=c("CC", "CB", "BB"), alleles=c("C", "B"))
+
+# Summaries
+summary(sug)
+```
+
+
+```{r}
+plot(sug)
+```
+
+```{r}
+plotMissing(sug)
+plotMap(sug)
+#plotPheno(sug, pheno.col=1)
+```
+
+
+## Single-QTL analysis
+
+We first calculate the QTL genotype probabilities, given the observed marker data, via the function `calc.genoprob`.
+This is done at the markers and at a grid along the chromosomes. The argument 'step' is the density of the grid (in cM),
+and defines the density of later QTL analyses.
+```{r}
+sug <- calc.genoprob(sug, step=1)
+```
+The output of `calc.genoprob` is the same cross object as input, with additional information (the QTL genotype
+probabilities) inserted. We assign this back to the original object (writing over the previous data), though it could have
+also been assigned to a new object.
+
+To perform a single-QTL genome scan, we use the function `scanone`. By default, it performs standard interval mapping
+(that is, maximum likelihood via the EM algorithm). Also, by default, it considers the first phenotype in the input cross
+object (in this case, blood pressure).
+
+```{r, warning=FALSE}
+out.em <- scanone(sug)
+```
+
+The output has “class” "scanone". The summary function is passed to the function 'summary.scanone', and gives
+the maximum LOD score on each chromosome.
+```{r}
+summary(out.em)
+```
+```{r}
+summary(out.em, threshold=3)
+```
+
+```{r}
+plot(out.em)
+```
+We can do the genome scan via Haley-Knott regression by calling `scanone` with the argument 'method'="hk".
+```{r, warning=FALSE}
+out.hk <- scanone(sug, method="hk")
+```
+
+```{r}
+plot(out.em, out.hk, col=c("blue", "red"))
+
+plot(out.em, col="blue")
+plot(out.hk, col="red", add=TRUE)
+
+plot(out.hk - out.em, ylim=c(-0.3, 0.3), ylab="LOD(HK)-LOD(EM)")
+```
+To perform a genome scan by the multiple imputation method, one must first call `sim.geno` to perform the multiple
+imputations. This is similar to `calc.genoprob`, but with an additional argument, n.draws, indicating the number
+of imputations. We then call scanone with 'method'="imp".
+```{r, warning=FALSE}
+sug <- sim.geno(sug, step=1, n.draws=64)
+out.imp <- scanone(sug, method="imp")
+```
+
+```{r}
+plot(out.em, out.hk, out.imp, col=c("blue", "red", "green"))
+
+plot(out.em, out.hk, out.imp, col=c("blue", "red", "green"), chr=c(7,15))
+
+plot(out.imp - out.em, out.hk - out.em, col=c("green", "red"), ylim=c(-1,1))
+```
+
+
+## Permutation tests
+
+To performa permutation test, to get a genome-wide significance threshold or genome-scan-adjusted p-values, we use 'scanone'
+just as before, but with an additional argument, 'n.perm', indicating the number of permutation replicates. It’s quickest to use
+Haley-Knott regression.
+
+```{r, warning=FALSE}
+load(url("https://rqtl.org/various.RData"))
+
+operm <- scanone(sug, method="hk", n.perm=1000)
+```
+
+```{r}
+plot(operm)
+
+summary(operm)
+summary(operm, alpha=c(0.05, 0.2))
+
+summary(out.hk, perms=operm, alpha=0.2, pvalues=TRUE)
+```
+
+## Interval estimates of QTL location
+
+For the blood pressure phenotype, we’ve seen good evidence for QTL on chromosomes 7 and 15. Interval estimates of the
+location of QTL are commonly obtained via 1.5-LOD support intervals, which may be calculated via the function 'lodint'.
+Alternatively, an approximate Bayes credible interval may be obtained with 'bayesint'.
+
+```{r}
+lodint(out.hk, chr=7)
+bayesint(out.hk, chr=7)
+```
+
+It is sometimes useful to identify the closest flanking markers; use 'expandtomarkers=TRUE':
+
+```{r}
+lodint(out.hk, chr=7, expandtomarkers=TRUE)
+bayesint(out.hk, chr=7, expandtomarkers=TRUE)
+```
+We can calculate the 2-LOD support interval and the 99% Bayes interval as follows.
+```{r}
+lodint(out.hk, chr=7, drop=2)
+bayesint(out.hk, chr=7, prob=0.99)
+```
+
+The intervals for the chr 15 locus may be calculated as follows.
+```{r}
+lodint(out.hk, chr=15)
+bayesint(out.hk, chr=15)
+```
+
+
+## QTL effects
+
+We may obtain plots indicating the estimated effects of the QTL via 'plotPXG', which creates a dot plot, or 'effectplot',
+which plots the average phenotype for each genotype group.
+
+```{r}
+max(out.hk)
+mar <- find.marker(sug, chr=7, pos=47.7)
+plotPXG(sug, marker=mar)
+```
+```{r}
+effectplot(sug, mname1=mar)
+
+effectplot(sug, mname1="7@47.7")
+```
+
+Similar plots may be obtained for the locus on chr 15.
+```{r}
+max(out.hk, chr=15)
+mar2 <- find.marker(sug, chr=15, pos=12)
+plotPXG(sug, marker=mar2)
+effectplot(sug, mname1="15@12")
+```
+
+```{r}
+plotPXG(sug, marker=c(mar, mar2))
+plotPXG(sug, marker=c(mar2, mar))
+
+effectplot(sug, mname1="7@47.7", mname2="15@12")
+effectplot(sug, mname2="7@47.7", mname1="15@12")
+```
+
+
+## Other phenotypes
+
+By default in 'scanone', we consider the first phenotype in the input cross object. Other phenotypes, include the parallel
+consideration of multiple phenotypes, can be considered via the argument 'pheno.col'.
+
+```{r, warning=FALSE}
+out.hr <- scanone(sug, pheno.col=2, method="hk")
+
+out.bw <- scanone(sug, pheno.col="bw", method="hk")
+
+out.logbw <- scanone(sug, pheno.col=log(sug$pheno$bw), method="hk")
+```
+
+```{r, warning=FALSE}
+out.all <- scanone(sug, pheno.col=1:4, method="hk")
+```
+
+```{r}
+summary(out.all, threshold=3)
+
+summary(out.all, threshold=3, lodcolumn=4)
+
+
+summary(out.all, threshold=3, format="allpeaks")
+
+summary(out.all, threshold=3, format="allpheno")
+
+summary(out.all, threshold=3, format="tabByCol")
+summary(out.all, threshold=3, format="tabByChr")
+```
+
+## Two-dimensional, two-QTL scans
+
+Two-dimensional, two-QTL scans offer the opportunity to detect interacting loci or to separate pairs of linked QTL. Analysis
+is performed with 'scantwo', which is much like scanone.
+
+```{r, warning=FALSE, message=FALSE}
+sug <- calc.genoprob(sug, step=2)
+
+out2 <- scantwo(sug, method="hk", verbose = FALSE)
+```
+
+```{r}
+plot(out2)
+
+plot(out2, lower="fv1")
+
+plot(out2, lower="fv1", upper="av1")
+```
+```{r, warning=FALSE, message=FALSE}
+operm2 <- scantwo(sug, method="hk", n.perm=5)
+
+summary(out2, perms=operm2, alpha=0.2, pvalues=TRUE)
+```
+
+## Multiple-QTL analyses
+
+After performing the single- and two-QTL genome scans, it’s best to bring the identified loci together into a joint model, which
+we then refine from which we may explore the possibility of further QTL. In this effort, we work with “QTL objects” created
+by 'makeqtl'. We fit multiple-QTL models with 'fitqtl'. A number of additional functions will be introduced below.
+
+```{r, warning=FALSE, message=FALSE}
+sug <- calc.genoprob(sug, step=1)
+qtl <- makeqtl(sug, chr=c(7,15), pos=c(47.7, 12), what="prob")
+out.fq <- fitqtl(sug, qtl=qtl, method="hk")
+summary(out.fq)
+```
+
+We may obtain the estimated effects of the QTL via get.ests=TRUE. We use dropone=FALSE to suppress the
+drop-one-term analysis.
+```{r}
+summary(fitqtl(sug, qtl=qtl, method="hk", get.ests=TRUE, dropone=FALSE))
+```
+
+To assess the possibility of an interaction between the two QTL, we may fit the model with the interaction, indicated via
+a model “formula”. The QTL are referred to as Q1 and Q2 in the formula, and we may indicate the interaction in a couple
+of different ways.
+```{r}
+out.fqi <- fitqtl(sug, qtl=qtl, method="hk", formula=y~Q1*Q2)
+out.fqi <- fitqtl(sug, qtl=qtl, method="hk", formula=y~Q1+Q2+Q1:Q2)
+summary(out.fqi)
+```
+
+Another way to assess interactions is with the function 'addint', which adds one interaction at a time, in the context of
+a multiple-QTL model. This is most useful when there are more than two QTL being considered.
+```{r}
+addint(sug, qtl=qtl, method="hk")
+```
+
+The locations of the two QTL are as estimated via the single-QTL scan. We may refine our estimates of QTL location in
+the context of the multiple-QTL model via refineqtl. This function uses a greedy algorithm to iteratively refines the
+locations of the QTL, one at a time, at each step seeking to improve the overall fit.
+```{r}
+rqtl <- refineqtl(sug, qtl=qtl, method="hk")
+rqtl
+```
+
+```{r}
+summary(out.fqr <- fitqtl(sug, qtl=rqtl, method="hk"))
+
+plotLodProfile(rqtl)
+
+plot(out.hk, chr=c(7,15), col="red", add=TRUE)
+```
+
+```{r}
+out.aq <- addqtl(sug, qtl=rqtl, method="hk")
+
+plot(out.aq)
+```
+
+Finally, we consider the function stepwiseqtl, which is our fully automated stepwise algorithm to optimize the
+penalized LOD scores of Manichaikul et al. (2009). We first need to calculate the appropriate penalties from the twodimensional
+permutation results.
+```{r}
+print(pen <- calc.penalties(operm2))
+```
+
+We then run stepwiseqtl, using max.qtl=5. It will perform forward selection to a model with 5 QTL, followed by
+backward elimination, and will report the model giving the largest penalized LOD score. The output is a QTL object.
+```{r}
+out.sq <- stepwiseqtl(sug, max.qtl=5, penalties=pen, method="hk", verbose=2)
+out.sq
+```
+
+
