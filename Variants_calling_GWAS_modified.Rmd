@@ -23,24 +23,22 @@ DNA sequencing is the determination of the order of the four nucleotides in a nu
 
 ### First-generation sequencing
 
-The first-generation sequencing emerged in 1970s when Allan Maxam and Walter Gilbert developed a **chemical method** for sequencing, followed by Frederick Sanger who developed the chain-terminator method (also known as the **Sanger sequencing** method). Both methods were used in shotgun sequencing, which involves breaking the DNA into fragments and then sequncing the fragments individually. The first step in Sanger sequencing is that of PCR. However, sample DNA is divided into for reaction tubes fluorescently labelled by di-deoxynucleotide tripospates: ddATP, ddGTP, ddCTP, and ddTTP. The synthesis terminates in DNA fragments in individual neucleotides which are then separated by size and identified using gel electophoresis.The DNA bands are then graphed by autoradiography and the order of the nucleotide bases on the DNA sequence can be directly read from Xray film.
+The first-generation sequencing emerged in 1970s when Allan Maxam and Walter Gilbert developed a **chemical sequencing method** for sequencing, followed by Frederick Sanger who developed the chain-termination method (also known as **Sanger sequencing**). Both methods were used in shotgun sequencing, which involves breaking DNA into fragments and sequencing each fragment individually. The first step in Sanger sequencing is that of PCR. However, sample DNA is divided into four reaction tubes fluorescently labelled by di-deoxynucleotide triphospates: ddATP, ddGTP, ddCTP, and ddTTP. The synthesis terminates in DNA fragments in individual nucleotides which are then separated by size and identified using gel electrophoresis. The DNA bands are visualized by autoradiography, allowing the nucleotide sequence to be read directly from the X-ray film.
 
 ### Next-generation sequencing (NGS)
 
-Next-generation sequencing (NGS) is a massively parallel DNA sequencing technology that can analyze hundreds of thousands of DNA fragments simultaneously. Compared to earlier sequencing technology, NGS provides sequencing information on multiple fragments simultaneously.  DNA is first made single strandard, and fluorescently labelled, and then allow to pair with known libraries/reference genomes. Fluorescent signals detected by the sensors is used to identify the DNA sequence.   
+Next-generation sequencing (NGS) is a massively parallel DNA sequencing technology that can analyze hundreds of thousands of DNA fragments simultaneously. Compared to earlier sequencing technologies, NGS provides sequencing information on multiple fragments simultaneously. DNA is converted into single strands (denatured), tagged with fluorescent markers, and then allowed to hybridize with known libraries or reference genomes. Fluorescent signals detected by the sensors are used to identify the DNA sequence.   
 
 ![NGS workflow](NGS_workflow.jpg)
 
+NGS refers to a class of technologies that sequence millions of short DNA fragments in parallel, with a relatively low cost. The length and number of the reads differ based on the technology. Currently, there are three major commercially available platforms/ technologies for NGS: (1) Illumina, (2) Roche, and (3) Life Technologies. The underlying chemistry and technique used in each platform is unique and affects the output.
 
-Next-Generation Sequencing refers to a class of technologies that sequence millions of short DNA fragments in parallel, with a relatively low cost. The length and number of the reads differ based on the technology. Currently, there are three major commercially available platforms/technologies for NGS: (1) Illumina, (2) Roche, and (3) Life Technologies. The underlying chemistry and technique used in each platform is unique and affects the output.
 
-
-NGS sequencing enables a wide variety of applications, allowing researchers to ask virtually any question related to the genome, transcriptome, or epigenome of any organism. NGS methods differ primarily by how the DNA or RNA samples are prepared and the data analysis options used. The technology is used to determine the order of nucleotides in entire genomes or targeted regions of DNA or RNA. 
-
+NGS enables a wide variety of applications, allowing researchers to ask virtually any question related to the genome, transcriptome, or epigenome of any organism. These methods differ primarily by how the DNA or RNA samples are prepared and the data analysis options used. The technology is used to determine the order of nucleotides in entire genomes or targeted regions of DNA or RNA. 
 
 ### Third-generation sequencing
 
-Third generation sequencing (TGS) is recent sequencing technique that addresses drawbacks of NGS, such as the needs for long reads and poor resolution (ie., poor and weak reads). The foundation of TGS emerged when DNA polymerase was used to obtain a sequence of single DNA molecules, which involves  (i) direct imaging of individual DNA molecules using advanced microscopy techniques and (ii) nanopore sequencing technique in which a single molecule of DNA is threaded through a nanopore ( a pore of nanoscale). The DNA's passage through the pore creates signals that can be converted to read the DNA sequence
+Third generation sequencing (TGS) is a recent technique that addresses drawbacks of NGS, such as the need for long reads and poor resolution (i.e., poor and weak reads). The foundation of TGS emerged when DNA polymerase was used to obtain a sequence of single DNA molecules, which involves (i) direct imaging of individual DNA molecules using advanced microscopy techniques and (ii) nanopore sequencing technique in which a single molecule of DNA is threaded through a nanopore (a pore of nanoscale). The DNA's passage through the pore creates signals that can be converted to read the DNA sequence
 
 In general, there are two TGS technologies available: (i) Pacific Bioscience (PacBio) single molecule real time sequencing, and (ii) Oxford nanopore technologies.
 
@@ -101,8 +99,9 @@ knitr::include_graphics("fastqPic.png")
 
 A FastQC file is a quality control report generated by the `FastQC` software, which is used to assess the quality of raw sequence data (typically in FASTQ format) from high-throughput sequencing experiments, providing a visual overview of potential issues like low quality bases, adapter contamination, or nucleotide bias within the reads, allowing researchers to identify problems before further analysis. 
 
+# Part III: From reads to a genome
 
-# Efficient data structures for read mapping
+## Read mapping to a reference genome
 
 **Read mapping** refers to alignment of reads from high throughput analysis into a reference genome. The basic alignment algorithms do not work here because *millions of reads* have to be aligned to a reference genomes at the same time. Therefore, efficient **indexing algorithms** are needed to organize the sequence of the reference genome and the short reads in a memory efficient manner and to facilitate fast searching of the patterns. The commonly used data structures are:
 
@@ -111,7 +110,8 @@ A FastQC file is a quality control report generated by the `FastQC` software, wh
 * Burrows-Wheeler transform (BWT)
 
 
-## Suffix Tree
+## Core alignment algorithms
+### Suffix Trees
 
 Suffix tree is basically used for pattern matching and finding substrings in a given string of characters. It is constructed as a key and value pairs where all possible suffixes of the reference sequences as *keys* and the positions (indexes) in the sequence as the *values*. The following algorithm, known as **Ukkonen's algorithm** constructs a suffix tree in a linear time. 
 
@@ -140,7 +140,7 @@ Note that each line consists of suffix (**key**) and a positon (**value**). Then
 
 Once the suffix tree is built, there are several searching algorithms are available to find the location where a read maps. For instance, to find "TGG" in the tree, we will start looking for T and and then GG. And since there are two leaf nodes, "TGG" can map at positions 2 or 6.
 
-## Suffix Arrays
+### Suffix Arrays
 
 ![Suffix Array: a sorted array in alphabetical order](suffix_array.png)
 
@@ -148,7 +148,7 @@ Suffix arrays can be constructed from suffix trees. It is basically a sorted arr
 
 
 
-## Burrows-Wheeler Transform
+### Burrows-Wheeler Transform
 
 ![Burrows-Wheeler Transform](bwt.png)
 
@@ -171,7 +171,7 @@ cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 
 BWT serves two purposes. First, BWT groups the characters of the sequence so that a single character appaers many times in a raw because the column is sorted alphabetically and that can be used for sequence compression. The second purpose is BWT data structure can be used for indexing the sequence of reference genome to make finding the position fast.
 
-# De novo genome assembly
+## De novo genome assembly
 
 *De novo* genome assembly comes to play when there is no reference genome available for the organism. The *de novo* genome assembly aims to join reads into a contiguous sequence called a **contig**. Multiple contigs are joined together to form a **scaffold** and multiple scaffolds can be linked to form a chromosome. 
 Assemblying the entire genome is usually challenging but with **deep sequencing** (with high coverage and depth), most of the challenges can be overcome. 
@@ -182,13 +182,13 @@ The algorithms used for de novo genome assembly are:
 * overlap consensus with Hamiltonian path
 * de Bruijn graph with Eulerian path
 
-## Greedy algorithm
+### Greedy algorithm
 
 It depends on similarity between reads to create a pile up of aligned sequences, which are collapsed to create contigs from the consensus sequences. The greedy algorithm uses pairwise alignment to compare all reads to identify the most similar reads with sufficient overlaps to be merged. The process continues repeatedly until there is no more merging. 
 
 ![Greedy algorithm for de novo genome assembly](greedy_algorithm.png)
 
-## Overlap consensus graphs
+### Overlap consensus graphs
 
 The *overlap-consensus algorithm* performs pairwise alignment and then it represents the reads and the overlaps between the reads with graphs, where contiguous reads are the nodes and their overlaps are the edges. 
 
@@ -198,11 +198,14 @@ Each node $r_i$ corresponds to a read and any two reads are connected by an edge
 
 ![The overlaps and consensus sequence](overlap_consensus.png)
 
-## De Bruijn Graphs
+### De Bruijn Graphs
 
 In de Bruijn graphs, each read is broken into overlapping substrings of length $k$ called overlapping **$k$-mers**. The $k$-mers are then represented by graphs in which each $k$-mer is a vertex. Any two nodes of any two $k$-mers that share a commeon prefix and suffix of length $k-1$ are connected by an edge. The contiguous reads are merged by finding the **Eulerian path**, which include every edge exactly once. 
 
 ![De Bruijn graphs](De_Bruijn_graphs.png)
+
+
+# Part IV: Variant discovery
 
 # DNA-Seq analysis 
 
